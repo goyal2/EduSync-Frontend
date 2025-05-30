@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { getCoursesByInstructor, deleteCourse } from '../services/api';
-import { Card, Spinner, Alert, Mthodal, Button } from 'react-bootstrap';
+import { Card, Spinner, Alert, Modal, Button } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 
-function InstructorCourseDetails() {
+function CourseDetails() {
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -182,4 +182,4 @@ function InstructorCourseDetails() {
   );
 }
 
-export default InstructorCourseDetails;
+export default CourseDetails;
