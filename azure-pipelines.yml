@@ -100,16 +100,35 @@ steps:
     NODE_OPTIONS: '--max-old-space-size=8192'
     CI: 'false'
 
+# Create staticwebapp.config.json for routing
+- script: |
+    echo '{
+      "navigationFallback": {
+        "rewrite": "/index.html",
+        "exclude": ["/images/*", "/css/*", "/js/*", "/assets/*"]
+      },
+      "routes": [
+        {
+          "route": "/*",
+          "serve": "/index.html",
+          "statusCode": 200
+        }
+      ]
+    }' > build/staticwebapp.config.json
+  displayName: 'Create Static Web App Config'
+
+# Deploy to Azure Static Web Apps
 - task: AzureStaticWebApp@0
   inputs:
-    app_location: '/'
-    output_location: 'build'
+    app_location: 'build'
     skip_app_build: true
-    azure_static_web_apps_api_token: $(AZURE_STATIC_WEB_APPS_API_TOKEN)
-    config_file_location: '/'
-    production_branch: 'master'
+    is_static_export: true
+    azure_static_web_apps_api_token: $(DEPLOYMENT_TOKEN)
+    deployment_environment: 'production'
   displayName: 'Deploy to Azure Static Web Apps'
   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+  env:
+    DEPLOYMENT_TOKEN: $(DEPLOYMENT_TOKEN)
 
 - task: ArchiveFiles@2
   inputs:
