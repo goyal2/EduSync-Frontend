@@ -1,4 +1,4 @@
-name: $(Date:yyyyMMdd)$(Rev:.r)
+name: EduSync-Frontend-$(Date:yyyyMMdd)$(Rev:.r)
 
 trigger:
   branches:
@@ -6,7 +6,10 @@ trigger:
     - master
   paths:
     include:
-    - '*'
+    - 'src/*'
+    - 'public/*'
+    - 'package.json'
+    - 'package-lock.json'
     exclude:
     - '*.md'
     - 'docs/*'
@@ -15,11 +18,9 @@ pool:
   vmImage: 'ubuntu-latest'
 
 variables:
-  staticWebAppName: 'edusync-frontend'
+  projectName: 'edusyncfrontend'
   NODE_VERSION: '20.x'
   npm_config_cache: $(Pipeline.Workspace)/.npm
-  YARN_CACHE_FOLDER: $(Pipeline.Workspace)/.yarn
-  CI: 'false'
 
 steps:
 - task: NodeTool@0
@@ -33,110 +34,81 @@ steps:
     key: 'npm | "$(Agent.OS)" | package-lock.json'
     restoreKeys: |
       npm | "$(Agent.OS)"
-      npm
     path: $(npm_config_cache)
   displayName: 'Cache npm packages'
-
-- task: Cache@2
-  inputs:
-    key: 'nodemodules | "$(Agent.OS)" | package-lock.json'
-    restoreKeys: |
-      nodemodules | "$(Agent.OS)"
-    path: '$(System.DefaultWorkingDirectory)/node_modules'
-    cacheHitVar: 'CACHE_RESTORED'
-  displayName: 'Cache node_modules'
 
 - script: |
     node -v
     npm -v
     npm config set cache $(npm_config_cache) --global
     npm config set registry https://registry.npmjs.org/
-    npm config set loglevel warn
-    npm config set fund false
-    npm config set update-notifier false
-    npm config set audit false
+    npm config set loglevel error
   displayName: 'Configure npm'
 
 - script: |
-    if [ ! -f "package.json" ]; then
-      echo "Error: package.json not found"
-      exit 1
-    fi
-    
-    # Update package.json with latest recommended versions
-    npm install --package-lock-only --no-audit --legacy-peer-deps \
-      @babel/plugin-transform-private-methods@latest \
-      @babel/plugin-transform-optional-chaining@latest \
-      @babel/plugin-transform-nullish-coalescing-operator@latest \
-      @babel/plugin-transform-numeric-separator@latest \
-      @babel/plugin-transform-class-properties@latest \
-      @babel/plugin-transform-private-property-in-object@latest \
-      @jridgewell/sourcemap-codec@latest \
-      rimraf@latest \
-      glob@latest \
-      workbox-cacheable-response@latest \
-      @rollup/plugin-terser@latest
-
-    # Install dependencies
-    npm ci --prefer-offline --no-audit --no-fund --legacy-peer-deps --loglevel=error
+    npm ci --prefer-offline --legacy-peer-deps
   displayName: 'Install Dependencies'
   env:
     NODE_OPTIONS: '--max-old-space-size=8192'
 
 - script: |
-    echo '{
-      "extends": [
-        "react-app",
-        "react-app/jest"
-      ],
-      "rules": {
-        "react/react-in-jsx-scope": "off",
-        "react/prop-types": "off",
-        "react-hooks/exhaustive-deps": "warn",
-        "no-unused-vars": "warn"
-      }
-    }' > .eslintrc.json
-  displayName: 'Configure ESLint'
-
-- script: |
     cat > .env << EOF
-    ESLINT_NO_DEV_ERRORS=true
-    DISABLE_ESLINT_PLUGIN=true
+    REACT_APP_API_URL=https://edusync-api.azurewebsites.net
+    REACT_APP_ENV=production
     GENERATE_SOURCEMAP=false
     CI=false
     NODE_ENV=production
     EOF
-  displayName: 'Configure Build Environment'
+  displayName: 'Configure Environment'
 
 - script: |
-    if [ ! -d "src" ]; then
-      echo "Error: src directory not found"
-      exit 1
-    fi
-    export NODE_OPTIONS="--max-old-space-size=8192 --no-warnings"
-    npm run build --no-audit --no-fund
+    npm run build
   displayName: 'Build React App'
   env:
     CI: 'false'
+    NODE_OPTIONS: '--max-old-space-size=8192'
 
-# Create staticwebapp.config.json for routing
 - script: |
     echo '{
       "navigationFallback": {
         "rewrite": "/index.html",
-        "exclude": ["/images/*", "/css/*", "/js/*", "/assets/*"]
+        "exclude": [
+          "/images/*",
+          "/css/*",
+          "/js/*",
+          "/assets/*",
+          "/*.{ico,png,jpg,gif}",
+          "/manifest.json"
+        ]
       },
       "routes": [
+        {
+          "route": "/static/*",
+          "headers": {
+            "cache-control": "public, max-age=31536000, immutable"
+          }
+        },
+        {
+          "route": "/assets/*",
+          "headers": {
+            "cache-control": "public, max-age=31536000, immutable"
+          }
+        },
         {
           "route": "/*",
           "serve": "/index.html",
           "statusCode": 200
         }
-      ]
+      ],
+      "globalHeaders": {
+        "content-security-policy": "default-src https: ''unsafe-eval'' ''unsafe-inline''; object-src ''none''"
+      },
+      "mimeTypes": {
+        ".json": "text/json"
+      }
     }' > build/staticwebapp.config.json
   displayName: 'Create Static Web App Config'
 
-# Deploy to Azure Static Web Apps
 - task: AzureStaticWebApp@0
   inputs:
     app_location: 'build'
@@ -146,15 +118,13 @@ steps:
     deployment_environment: 'production'
   displayName: 'Deploy to Azure Static Web Apps'
   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
-  env:
-    DEPLOYMENT_TOKEN: $(DEPLOYMENT_TOKEN)
 
 - task: ArchiveFiles@2
   inputs:
     rootFolderOrFile: 'build'
     includeRootFolder: false
     archiveType: 'zip'
-    archiveFile: '$(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip'
+    archiveFile: '$(Build.ArtifactStagingDirectory)/$(projectName)-$(Build.BuildId).zip'
     replaceExistingArchive: true
   displayName: 'Archive Build Files'
   condition: succeeded()
