@@ -53,10 +53,13 @@ steps:
 
 - task: AzureStaticWebApp@0
   inputs:
-    app_location: '.'
+    app_location: '/'
     output_location: 'build'
-    skip_app_build: true
+    api_location: ''
+    skip_api_build: true
     azure_static_web_apps_api_token: $(Deployment)
+    production_branch: 'master'
+    config_file_location: '/'
   displayName: 'Deploy to Azure Static Web Apps'
 
 - task: CopyFiles@2
