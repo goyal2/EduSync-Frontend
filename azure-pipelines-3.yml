@@ -16,7 +16,6 @@ pool:
   vmImage: 'ubuntu-latest'
 
 variables:
-  staticWebAppName: 'edusync-frontend'
   NODE_VERSION: '20.x'
 
 steps:
@@ -34,7 +33,6 @@ steps:
 - script: |
     npm install --legacy-peer-deps
   displayName: 'Install Dependencies'
-  workingDirectory: '$(System.DefaultWorkingDirectory)'
 
 - script: |
     cat > .env << EOF
@@ -49,24 +47,24 @@ steps:
   displayName: 'Build React App'
   env:
     CI: 'false'
-  workingDirectory: '$(System.DefaultWorkingDirectory)'
 
 - task: CopyFiles@2
   inputs:
+    sourceFolder: '$(System.DefaultWorkingDirectory)'
     Contents: |
+      build/**/*
       staticwebapp.config.json
-      build/**
     TargetFolder: '$(Build.ArtifactStagingDirectory)'
     CleanTargetFolder: true
+    flattenFolders: false
   displayName: 'Copy Files to Staging'
 
 - task: AzureStaticWebApp@0
   inputs:
     app_location: '$(Build.ArtifactStagingDirectory)'
-    output_location: ''
+    output_location: 'build'
     skip_app_build: true
     azure_static_web_apps_api_token: $(Deployment)
-    config_file_location: '$(Build.ArtifactStagingDirectory)'
   displayName: 'Deploy to Azure Static Web Apps'
 
 - task: PublishBuildArtifacts@1
