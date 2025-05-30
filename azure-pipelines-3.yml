@@ -9,6 +9,8 @@ trigger:
     - 'public/*'
     - 'package.json'
     - 'package-lock.json'
+    - 'azure-pipelines.yml'
+    - 'staticwebapp.config.json'
 
 pool:
   vmImage: 'ubuntu-latest'
@@ -51,11 +53,10 @@ steps:
 
 - task: AzureStaticWebApp@0
   inputs:
-    app_location: '/'
+    app_location: '.'
     output_location: 'build'
     skip_app_build: true
     azure_static_web_apps_api_token: $(Deployment)
-    config_file_location: '/'
   displayName: 'Deploy to Azure Static Web Apps'
 
 - task: CopyFiles@2
@@ -64,7 +65,9 @@ steps:
       build/**
       .env
       package.json
+      staticwebapp.config.json
     TargetFolder: '$(Build.ArtifactStagingDirectory)'
+    CleanTargetFolder: true
   displayName: 'Copy Files for Artifact'
 
 - task: PublishBuildArtifacts@1
