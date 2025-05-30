@@ -1,0 +1,50 @@
+trigger:
+  - master
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  NODE_VERSION: '20.x'
+  REACT_APP_PRODUCTION: true
+
+steps:
+- task: NodeTool@0
+  inputs:
+    versionSpec: '$(NODE_VERSION)'
+  displayName: 'Install Node.js'
+
+- script: |
+    npm ci
+  displayName: 'Install Dependencies'
+
+- script: |
+    npm run build
+  displayName: 'Build React App'
+  env:
+    CI: false # This prevents treating warnings as errors
+
+- task: CopyFiles@2
+  inputs:
+    sourceFolder: 'build'
+    contents: '**/*'
+    targetFolder: '$(Build.ArtifactStagingDirectory)'
+  displayName: 'Copy Build Files'
+
+- task: PublishBuildArtifacts@1
+  inputs:
+    pathToPublish: '$(Build.ArtifactStagingDirectory)'
+    artifactName: 'drop'
+    publishLocation: 'Container'
+  displayName: 'Publish Build Artifacts'
+
+# Add linting and testing steps
+- script: |
+    npm run lint
+  displayName: 'Run Linting'
+  continueOnError: true
+
+- script: |
+    npm test -- --watchAll=false
+  displayName: 'Run Tests'
+  continueOnError: true 
