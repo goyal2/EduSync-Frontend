@@ -2,9 +2,10 @@ trigger:
 - master
 
 pool:
-  vmImage: ubuntu-latest
+  vmImage: 'ubuntu-latest'
 
 variables:
+  staticWebAppName: 'edusync-frontend'
   NODE_VERSION: '20.x'
   CACHE_KEY: npm | $(Agent.OS) | package-lock.json
   CACHE_PATH: $(System.DefaultWorkingDirectory)/node_modules
@@ -39,7 +40,7 @@ steps:
         "no-unused-vars": "warn"
       }
     }' > .eslintrc.json
-  displayName: 'Create ESLint Config'
+  displayName: 'Configure ESLint'
 
 - script: |
     echo "ESLINT_NO_DEV_ERRORS=true" > .env
@@ -50,25 +51,15 @@ steps:
     export CI=false
     npm run build
   displayName: 'Build React App'
+  workingDirectory: '$(System.DefaultWorkingDirectory)'
 
-- script: |
-    CI=true npm test -- --watchAll=false --passWithNoTests
-  displayName: 'Run Tests'
-  continueOnError: true
-
-- task: PublishTestResults@2
+- task: AzureStaticWebApp@0
   inputs:
-    testResultsFiles: '**/junit.xml'
-    mergeTestResults: true
-    testRunTitle: 'React Tests'
-  condition: succeededOrFailed()
-
-- task: PublishCodeCoverageResults@1
-  inputs:
-    codeCoverageTool: Cobertura
-    summaryFileLocation: '$(System.DefaultWorkingDirectory)/coverage/cobertura-coverage.xml'
-    reportDirectory: '$(System.DefaultWorkingDirectory)/coverage'
-  condition: succeededOrFailed()
+    app_location: '/'
+    output_location: 'build'
+    skip_app_build: true
+    azure_static_web_apps_api_token: $(AZURE_STATIC_WEB_APPS_API_TOKEN)
+  displayName: 'Deploy to Azure Static Web Apps'
 
 - task: ArchiveFiles@2
   inputs:
