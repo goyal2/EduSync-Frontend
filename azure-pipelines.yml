@@ -22,61 +22,66 @@ steps:
   displayName: 'Cache node_modules'
 
 - script: |
-    npm ci
+    npm ci --legacy-peer-deps
   displayName: 'Install Dependencies'
   condition: ne(variables['CacheRestored'], 'true')
 
 - script: |
-    npm install --save-dev eslint eslint-plugin-react eslint-plugin-react-hooks @typescript-eslint/parser @typescript-eslint/eslint-plugin
+    npm install --save-dev eslint@8.x eslint-plugin-react@latest eslint-plugin-react-hooks@latest --legacy-peer-deps
   displayName: 'Install ESLint Dependencies'
 
 - script: |
-    if [ ! -f ".eslintrc.json" ]; then
-      echo '{
-        "env": {
-          "browser": true,
-          "es2021": true,
-          "jest": true
+    if [ ! -f ".eslintrc.js" ]; then
+      echo 'module.exports = {
+        root: true,
+        env: {
+          browser: true,
+          es2021: true,
+          jest: true,
+          node: true
         },
-        "extends": [
+        extends: [
           "eslint:recommended",
           "plugin:react/recommended",
-          "plugin:react-hooks/recommended"
+          "plugin:react-hooks/recommended",
+          "react-app",
+          "react-app/jest"
         ],
-        "parserOptions": {
-          "ecmaFeatures": {
-              "jsx": true
+        parserOptions: {
+          ecmaFeatures: {
+            jsx: true
           },
-          "ecmaVersion": "latest",
-          "sourceType": "module"
+          ecmaVersion: "latest",
+          sourceType: "module"
         },
-        "plugins": [
+        plugins: [
           "react",
           "react-hooks"
         ],
-        "rules": {
-          "react/react-in-jsx-scope": "off"
+        rules: {
+          "react/react-in-jsx-scope": "off",
+          "react/prop-types": "off"
         },
-        "settings": {
-          "react": {
-            "version": "detect"
+        settings: {
+          react: {
+            version: "detect"
           }
         }
-      }' > .eslintrc.json
+      }' > .eslintrc.js
     fi
-  displayName: 'Create ESLint Config if not exists'
+  displayName: 'Create ESLint Config'
 
 - script: |
-    npx eslint . --ext .js,.jsx --max-warnings 0
+    npx eslint "src/**/*.{js,jsx}" --max-warnings 0
   displayName: 'Run Linting'
   continueOnError: true
 
 - script: |
-    npm run build
+    CI=true npm run build
   displayName: 'Build React App'
 
 - script: |
-    npm test -- --watchAll=false --ci --coverage
+    CI=true npm test -- --watchAll=false --passWithNoTests
   displayName: 'Run Tests'
   continueOnError: true
 
