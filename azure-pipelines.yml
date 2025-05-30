@@ -1,5 +1,15 @@
+name: $(Date:yyyyMMdd)$(Rev:.r)
+
 trigger:
-- master
+  branches:
+    include:
+    - master
+  paths:
+    include:
+    - '*'
+    exclude:
+    - '*.md'
+    - 'docs/*'
 
 pool:
   vmImage: 'ubuntu-latest'
@@ -8,11 +18,14 @@ variables:
   staticWebAppName: 'edusync-frontend'
   NODE_VERSION: '20.x'
   npm_config_cache: $(Pipeline.Workspace)/.npm
+  YARN_CACHE_FOLDER: $(Pipeline.Workspace)/.yarn
+  CI: 'false'
 
 steps:
 - task: NodeTool@0
   inputs:
     versionSpec: $(NODE_VERSION)
+    checkLatest: true
   displayName: 'Install Node.js'
 
 - task: Cache@2
@@ -20,20 +33,36 @@ steps:
     key: 'npm | "$(Agent.OS)" | package-lock.json'
     restoreKeys: |
       npm | "$(Agent.OS)"
+      npm
     path: $(npm_config_cache)
   displayName: 'Cache npm packages'
 
 - task: Cache@2
   inputs:
     key: 'nodemodules | "$(Agent.OS)" | package-lock.json'
+    restoreKeys: |
+      nodemodules | "$(Agent.OS)"
     path: '$(System.DefaultWorkingDirectory)/node_modules'
     cacheHitVar: 'CACHE_RESTORED'
   displayName: 'Cache node_modules'
 
 - script: |
+    node -v
+    npm -v
     npm config set cache $(npm_config_cache) --global
+    npm config set registry https://registry.npmjs.org/
+    npm config list
+  displayName: 'Print Node.js and npm versions and config'
+
+- script: |
+    if [ ! -f "package.json" ]; then
+      echo "Error: package.json not found"
+      exit 1
+    fi
     npm ci --prefer-offline --no-audit --legacy-peer-deps
   displayName: 'Install Dependencies'
+  env:
+    NODE_OPTIONS: '--max-old-space-size=8192'
 
 - script: |
     echo '{
@@ -55,15 +84,21 @@ steps:
     ESLINT_NO_DEV_ERRORS=true
     DISABLE_ESLINT_PLUGIN=true
     GENERATE_SOURCEMAP=false
+    CI=false
+    NODE_ENV=production
     EOF
   displayName: 'Configure Build Environment'
 
 - script: |
-    export CI=false
+    if [ ! -d "src" ]; then
+      echo "Error: src directory not found"
+      exit 1
+    fi
     npm run build
   displayName: 'Build React App'
   env:
-    NODE_OPTIONS: '--max-old-space-size=4096'
+    NODE_OPTIONS: '--max-old-space-size=8192'
+    CI: 'false'
 
 - task: AzureStaticWebApp@0
   inputs:
@@ -72,7 +107,9 @@ steps:
     skip_app_build: true
     azure_static_web_apps_api_token: $(AZURE_STATIC_WEB_APPS_API_TOKEN)
     config_file_location: '/'
+    production_branch: 'master'
   displayName: 'Deploy to Azure Static Web Apps'
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
 
 - task: ArchiveFiles@2
   inputs:
@@ -82,10 +119,12 @@ steps:
     archiveFile: '$(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip'
     replaceExistingArchive: true
   displayName: 'Archive Build Files'
+  condition: succeeded()
 
 - task: PublishBuildArtifacts@1
   inputs:
     PathtoPublish: '$(Build.ArtifactStagingDirectory)'
     ArtifactName: 'drop'
     publishLocation: 'Container'
-  displayName: 'Publish Build Artifacts' 
+  displayName: 'Publish Build Artifacts'
+  condition: succeeded() 
