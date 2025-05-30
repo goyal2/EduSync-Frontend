@@ -1,50 +1,111 @@
 trigger:
-  - master
+- master
 
 pool:
-  vmImage: 'ubuntu-latest'
+  vmImage: ubuntu-latest
 
 variables:
   NODE_VERSION: '20.x'
-  REACT_APP_PRODUCTION: true
+  CACHE_KEY: npm | $(Agent.OS) | package-lock.json
+  CACHE_PATH: $(System.DefaultWorkingDirectory)/node_modules
 
 steps:
 - task: NodeTool@0
   inputs:
-    versionSpec: '$(NODE_VERSION)'
+    versionSpec: $(NODE_VERSION)
   displayName: 'Install Node.js'
+
+- task: Cache@2
+  inputs:
+    key: $(CACHE_KEY)
+    path: $(CACHE_PATH)
+  displayName: 'Cache node_modules'
 
 - script: |
     npm ci
   displayName: 'Install Dependencies'
+  condition: ne(variables['CacheRestored'], 'true')
 
 - script: |
-    npm run build
-  displayName: 'Build React App'
-  env:
-    CI: false # This prevents treating warnings as errors
+    npm install --save-dev eslint eslint-plugin-react eslint-plugin-react-hooks @typescript-eslint/parser @typescript-eslint/eslint-plugin
+  displayName: 'Install ESLint Dependencies'
 
-- task: CopyFiles@2
-  inputs:
-    sourceFolder: 'build'
-    contents: '**/*'
-    targetFolder: '$(Build.ArtifactStagingDirectory)'
-  displayName: 'Copy Build Files'
-
-- task: PublishBuildArtifacts@1
-  inputs:
-    pathToPublish: '$(Build.ArtifactStagingDirectory)'
-    artifactName: 'drop'
-    publishLocation: 'Container'
-  displayName: 'Publish Build Artifacts'
-
-# Add linting and testing steps
 - script: |
-    npm run lint
+    if [ ! -f ".eslintrc.json" ]; then
+      echo '{
+        "env": {
+          "browser": true,
+          "es2021": true,
+          "jest": true
+        },
+        "extends": [
+          "eslint:recommended",
+          "plugin:react/recommended",
+          "plugin:react-hooks/recommended"
+        ],
+        "parserOptions": {
+          "ecmaFeatures": {
+              "jsx": true
+          },
+          "ecmaVersion": "latest",
+          "sourceType": "module"
+        },
+        "plugins": [
+          "react",
+          "react-hooks"
+        ],
+        "rules": {
+          "react/react-in-jsx-scope": "off"
+        },
+        "settings": {
+          "react": {
+            "version": "detect"
+          }
+        }
+      }' > .eslintrc.json
+    fi
+  displayName: 'Create ESLint Config if not exists'
+
+- script: |
+    npx eslint . --ext .js,.jsx --max-warnings 0
   displayName: 'Run Linting'
   continueOnError: true
 
 - script: |
-    npm test -- --watchAll=false
+    npm run build
+  displayName: 'Build React App'
+
+- script: |
+    npm test -- --watchAll=false --ci --coverage
   displayName: 'Run Tests'
-  continueOnError: true 
+  continueOnError: true
+
+- task: PublishTestResults@2
+  inputs:
+    testResultsFiles: '**/junit.xml'
+    mergeTestResults: true
+    testRunTitle: 'React Tests'
+  condition: succeededOrFailed()
+
+- task: PublishCodeCoverageResults@1
+  inputs:
+    codeCoverageTool: Cobertura
+    summaryFileLocation: '$(System.DefaultWorkingDirectory)/coverage/cobertura-coverage.xml'
+    reportDirectory: '$(System.DefaultWorkingDirectory)/coverage'
+  condition: succeededOrFailed()
+
+- task: ArchiveFiles@2
+  inputs:
+    rootFolderOrFile: 'build'
+    includeRootFolder: false
+    archiveType: 'zip'
+    archiveFile: '$(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip'
+    replaceExistingArchive: true
+  displayName: 'Archive Build Files'
+
+- task: PublishBuildArtifacts@1
+  inputs:
+    PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+    ArtifactName: 'drop'
+    publishLocation: 'Container'
+  displayName: 'Publish Build Artifacts' 
