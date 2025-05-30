@@ -7,8 +7,7 @@ pool:
 variables:
   staticWebAppName: 'edusync-frontend'
   NODE_VERSION: '20.x'
-  CACHE_KEY: npm | $(Agent.OS) | package-lock.json
-  CACHE_PATH: $(System.DefaultWorkingDirectory)/node_modules
+  npm_config_cache: $(Pipeline.Workspace)/.npm
 
 steps:
 - task: NodeTool@0
@@ -18,14 +17,23 @@ steps:
 
 - task: Cache@2
   inputs:
-    key: $(CACHE_KEY)
-    path: $(CACHE_PATH)
+    key: 'npm | "$(Agent.OS)" | package-lock.json'
+    restoreKeys: |
+      npm | "$(Agent.OS)"
+    path: $(npm_config_cache)
+  displayName: 'Cache npm packages'
+
+- task: Cache@2
+  inputs:
+    key: 'nodemodules | "$(Agent.OS)" | package-lock.json'
+    path: '$(System.DefaultWorkingDirectory)/node_modules'
+    cacheHitVar: 'CACHE_RESTORED'
   displayName: 'Cache node_modules'
 
 - script: |
-    npm ci --legacy-peer-deps
+    npm config set cache $(npm_config_cache) --global
+    npm ci --prefer-offline --no-audit --legacy-peer-deps
   displayName: 'Install Dependencies'
-  condition: ne(variables['CacheRestored'], 'true')
 
 - script: |
     echo '{
@@ -43,15 +51,19 @@ steps:
   displayName: 'Configure ESLint'
 
 - script: |
-    echo "ESLINT_NO_DEV_ERRORS=true" > .env
-    echo "DISABLE_ESLINT_PLUGIN=true" >> .env
+    cat > .env << EOF
+    ESLINT_NO_DEV_ERRORS=true
+    DISABLE_ESLINT_PLUGIN=true
+    GENERATE_SOURCEMAP=false
+    EOF
   displayName: 'Configure Build Environment'
 
 - script: |
     export CI=false
     npm run build
   displayName: 'Build React App'
-  workingDirectory: '$(System.DefaultWorkingDirectory)'
+  env:
+    NODE_OPTIONS: '--max-old-space-size=4096'
 
 - task: AzureStaticWebApp@0
   inputs:
@@ -59,6 +71,7 @@ steps:
     output_location: 'build'
     skip_app_build: true
     azure_static_web_apps_api_token: $(AZURE_STATIC_WEB_APPS_API_TOKEN)
+    config_file_location: '/'
   displayName: 'Deploy to Azure Static Web Apps'
 
 - task: ArchiveFiles@2
