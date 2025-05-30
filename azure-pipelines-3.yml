@@ -48,24 +48,25 @@ steps:
   env:
     CI: 'false'
 
+- task: AzureStaticWebApp@0
+  inputs:
+    app_location: 'build'
+    skip_app_build: true
+    is_static_export: true
+    azure_static_web_apps_api_token: $(Deployment)
+    deployment_environment: 'production'
+  displayName: 'Deploy to Azure Static Web Apps'
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
 - task: CopyFiles@2
   inputs:
-    sourceFolder: '$(System.DefaultWorkingDirectory)'
     Contents: |
-      build/**/*
+      build/**
+      .env
+      package.json
       staticwebapp.config.json
     TargetFolder: '$(Build.ArtifactStagingDirectory)'
     CleanTargetFolder: true
-    flattenFolders: false
-  displayName: 'Copy Files to Staging'
-
-- task: AzureStaticWebApp@0
-  inputs:
-    app_location: '$(Build.ArtifactStagingDirectory)'
-    output_location: 'build'
-    skip_app_build: true
-    azure_static_web_apps_api_token: $(Deployment)
-  displayName: 'Deploy to Azure Static Web Apps'
+  displayName: 'Copy Files for Artifact'
 
 - task: PublishBuildArtifacts@1
   inputs:
