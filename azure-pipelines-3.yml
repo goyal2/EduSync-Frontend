@@ -1,0 +1,75 @@
+# Azure Static Web Apps CI/CD - EduSync Frontend
+trigger:
+  branches:
+    include:
+    - master
+  paths:
+    include:
+    - 'src/*'
+    - 'public/*'
+    - 'package.json'
+    - 'package-lock.json'
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  staticWebAppName: 'edusync-frontend'
+  NODE_VERSION: '20.x'
+
+steps:
+- task: NodeTool@0
+  inputs:
+    versionSpec: $(NODE_VERSION)
+    checkLatest: true
+  displayName: 'Install Node.js'
+
+- script: |
+    echo "Node version: $(node -v)"
+    echo "NPM version: $(npm -v)"
+  displayName: 'Print versions'
+
+- script: |
+    npm install --legacy-peer-deps
+  displayName: 'Install Dependencies'
+  workingDirectory: '$(System.DefaultWorkingDirectory)'
+
+- script: |
+    cat > .env << EOF
+    REACT_APP_API_URL=https://edusync-api.azurewebsites.net
+    REACT_APP_ENV=production
+    GENERATE_SOURCEMAP=false
+    EOF
+  displayName: 'Create environment file'
+
+- script: |
+    npm run build
+  displayName: 'Build React App'
+  env:
+    CI: 'false'
+  workingDirectory: '$(System.DefaultWorkingDirectory)'
+
+- task: AzureStaticWebApp@0
+  inputs:
+    app_location: '/'
+    output_location: 'build'
+    skip_app_build: true
+    azure_static_web_apps_api_token: $(Deployment)
+    config_file_location: '/'
+  displayName: 'Deploy to Azure Static Web Apps'
+
+- task: CopyFiles@2
+  inputs:
+    Contents: |
+      build/**
+      .env
+      package.json
+    TargetFolder: '$(Build.ArtifactStagingDirectory)'
+  displayName: 'Copy Files for Artifact'
+
+- task: PublishBuildArtifacts@1
+  inputs:
+    PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+    ArtifactName: 'edusync-frontend'
+    publishLocation: 'Container'
+  displayName: 'Publish Build Artifacts' 
