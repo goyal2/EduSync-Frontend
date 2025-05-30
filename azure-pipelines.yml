@@ -27,54 +27,17 @@ steps:
   condition: ne(variables['CacheRestored'], 'true')
 
 - script: |
-    npm install --save-dev eslint@8.x eslint-plugin-react@latest eslint-plugin-react-hooks@latest --legacy-peer-deps
-  displayName: 'Install ESLint Dependencies'
-
-- script: |
-    if [ ! -f ".eslintrc.js" ]; then
-      echo 'module.exports = {
-        root: true,
-        env: {
-          browser: true,
-          es2021: true,
-          jest: true,
-          node: true
-        },
-        extends: [
-          "eslint:recommended",
-          "plugin:react/recommended",
-          "plugin:react-hooks/recommended",
-          "react-app",
-          "react-app/jest"
-        ],
-        parserOptions: {
-          ecmaFeatures: {
-            jsx: true
-          },
-          ecmaVersion: "latest",
-          sourceType: "module"
-        },
-        plugins: [
-          "react",
-          "react-hooks"
-        ],
-        rules: {
-          "react/react-in-jsx-scope": "off",
-          "react/prop-types": "off"
-        },
-        settings: {
-          react: {
-            version: "detect"
-          }
-        }
-      }' > .eslintrc.js
-    fi
+    echo '{
+      "extends": [
+        "react-app",
+        "react-app/jest"
+      ],
+      "rules": {
+        "react/react-in-jsx-scope": "off",
+        "react/prop-types": "off"
+      }
+    }' > .eslintrc.json
   displayName: 'Create ESLint Config'
-
-- script: |
-    npx eslint "src/**/*.{js,jsx}" --max-warnings 0
-  displayName: 'Run Linting'
-  continueOnError: true
 
 - script: |
     CI=true npm run build
