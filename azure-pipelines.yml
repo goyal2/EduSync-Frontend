@@ -51,15 +51,34 @@ steps:
     npm -v
     npm config set cache $(npm_config_cache) --global
     npm config set registry https://registry.npmjs.org/
-    npm config list
-  displayName: 'Print Node.js and npm versions and config'
+    npm config set loglevel warn
+    npm config set fund false
+    npm config set update-notifier false
+    npm config set audit false
+  displayName: 'Configure npm'
 
 - script: |
     if [ ! -f "package.json" ]; then
       echo "Error: package.json not found"
       exit 1
     fi
-    npm ci --prefer-offline --no-audit --legacy-peer-deps
+    
+    # Update package.json with latest recommended versions
+    npm install --package-lock-only --no-audit --legacy-peer-deps \
+      @babel/plugin-transform-private-methods@latest \
+      @babel/plugin-transform-optional-chaining@latest \
+      @babel/plugin-transform-nullish-coalescing-operator@latest \
+      @babel/plugin-transform-numeric-separator@latest \
+      @babel/plugin-transform-class-properties@latest \
+      @babel/plugin-transform-private-property-in-object@latest \
+      @jridgewell/sourcemap-codec@latest \
+      rimraf@latest \
+      glob@latest \
+      workbox-cacheable-response@latest \
+      @rollup/plugin-terser@latest
+
+    # Install dependencies
+    npm ci --prefer-offline --no-audit --no-fund --legacy-peer-deps --loglevel=error
   displayName: 'Install Dependencies'
   env:
     NODE_OPTIONS: '--max-old-space-size=8192'
@@ -94,10 +113,10 @@ steps:
       echo "Error: src directory not found"
       exit 1
     fi
-    npm run build
+    export NODE_OPTIONS="--max-old-space-size=8192 --no-warnings"
+    npm run build --no-audit --no-fund
   displayName: 'Build React App'
   env:
-    NODE_OPTIONS: '--max-old-space-size=8192'
     CI: 'false'
 
 # Create staticwebapp.config.json for routing
