@@ -1,26 +1,43 @@
 import axios from 'axios';
 
-// Get the current hostname
-const hostname = window.location.hostname;
-
-// Determine the base URL based on the hostname
-const getBaseUrl = () => {
-  if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    return 'https://backendprojectwebapp-c4azccb4dbbchsdc.centralindia-01.azurewebsites.net';
-  }
-  return 'https://backendprojectwebapp-c4azccb4dbbchsdc.centralindia-01.azurewebsites.net';
-};
-
+// Create an axios instance with default config
 const api = axios.create({
-  baseURL: getBaseUrl(),
+  baseURL: 'https://backendprojectwebapp-c4azccb4dbbchsdc.centralindia-01.azurewebsites.net',
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true // Important for CORS with credentials
 });
+
+// Add request interceptor to handle errors
+api.interceptors.request.use(
+  (config) => {
+    // You can add any request preprocessing here
+    return config;
+  },
+  (error) => {
+    console.error('Request error:', error);
+    return Promise.reject(error);
+  }
+);
+
+// Add response interceptor to handle errors
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    console.error('Response error:', error);
+    return Promise.reject(error);
+  }
+);
 
 // Register a new user
 const registerUser = async (userData) => {
-  return api.post('/api/UserModels', userData);
+  try {
+    return await api.post('/api/UserModels', userData);
+  } catch (error) {
+    console.error('Registration error:', error);
+    throw error;
+  }
 };
 
 // Login user
@@ -29,14 +46,19 @@ const loginUser = async (credentials) => {
     const response = await api.post('/api/UserModels/login', credentials);
     return response;
   } catch (error) {
-    console.error('Login request failed:', error);
+    console.error('Login error:', error);
     throw error;
   }
 };
 
 // Get user by ID
 const getUserById = async (id) => {
-  return api.get(`/api/UserModels/${id}`);
+  try {
+    return await api.get(`/api/UserModels/${id}`);
+  } catch (error) {
+    console.error('Get user error:', error);
+    throw error;
+  }
 };
 
 // Upload course
@@ -133,7 +155,6 @@ export const getCompletedAssessments = (studentId) =>
 // Get student's average score
 export const getStudentAverageScore = (studentId) =>
   api.get(`/api/ResultModels/average/${studentId}`);
-
 
 export {
   registerUser,
