@@ -1,5 +1,4 @@
-name: EduSync-Frontend-$(Date:yyyyMMdd)$(Rev:.r)
-
+# Azure Static Web Apps CI/CD - EduSync Frontend
 trigger:
   branches:
     include:
@@ -10,17 +9,14 @@ trigger:
     - 'public/*'
     - 'package.json'
     - 'package-lock.json'
-    exclude:
-    - '*.md'
-    - 'docs/*'
+    - 'azure-pipelines.yml'
+    - 'staticwebapp.config.json'
 
 pool:
   vmImage: 'ubuntu-latest'
 
 variables:
-  projectName: 'edusyncfrontend'
   NODE_VERSION: '20.x'
-  npm_config_cache: $(Pipeline.Workspace)/.npm
 
 steps:
 - task: NodeTool@0
@@ -29,110 +25,52 @@ steps:
     checkLatest: true
   displayName: 'Install Node.js'
 
-- task: Cache@2
-  inputs:
-    key: 'npm | "$(Agent.OS)" | package-lock.json'
-    restoreKeys: |
-      npm | "$(Agent.OS)"
-    path: $(npm_config_cache)
-  displayName: 'Cache npm packages'
+- script: |
+    echo "Node version: $(node -v)"
+    echo "NPM version: $(npm -v)"
+  displayName: 'Print versions'
 
 - script: |
-    node -v
-    npm -v
-    npm config set cache $(npm_config_cache) --global
-    npm config set registry https://registry.npmjs.org/
-    npm config set loglevel error
-  displayName: 'Configure npm'
-
-- script: |
-    npm ci --prefer-offline --legacy-peer-deps
+    npm install --legacy-peer-deps
   displayName: 'Install Dependencies'
-  env:
-    NODE_OPTIONS: '--max-old-space-size=8192'
 
 - script: |
     cat > .env << EOF
     REACT_APP_API_URL=https://edusync-api.azurewebsites.net
     REACT_APP_ENV=production
     GENERATE_SOURCEMAP=false
-    CI=false
-    NODE_ENV=production
     EOF
-  displayName: 'Configure Environment'
+  displayName: 'Create environment file'
 
 - script: |
     npm run build
   displayName: 'Build React App'
   env:
     CI: 'false'
-    NODE_OPTIONS: '--max-old-space-size=8192'
-
-- script: |
-    echo '{
-      "navigationFallback": {
-        "rewrite": "/index.html",
-        "exclude": [
-          "/images/*",
-          "/css/*",
-          "/js/*",
-          "/assets/*",
-          "/*.{ico,png,jpg,gif}",
-          "/manifest.json"
-        ]
-      },
-      "routes": [
-        {
-          "route": "/static/*",
-          "headers": {
-            "cache-control": "public, max-age=31536000, immutable"
-          }
-        },
-        {
-          "route": "/assets/*",
-          "headers": {
-            "cache-control": "public, max-age=31536000, immutable"
-          }
-        },
-        {
-          "route": "/*",
-          "serve": "/index.html",
-          "statusCode": 200
-        }
-      ],
-      "globalHeaders": {
-        "content-security-policy": "default-src https: ''unsafe-eval'' ''unsafe-inline''; object-src ''none''"
-      },
-      "mimeTypes": {
-        ".json": "text/json"
-      }
-    }' > build/staticwebapp.config.json
-  displayName: 'Create Static Web App Config'
 
 - task: AzureStaticWebApp@0
   inputs:
     app_location: 'build'
     skip_app_build: true
     is_static_export: true
-    azure_static_web_apps_api_token: $(Deployment)
+    azure_static_web_apps_api_token: $(deployment_token)
     deployment_environment: 'production'
   displayName: 'Deploy to Azure Static Web Apps'
   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
-
-- task: ArchiveFiles@2
+- task: CopyFiles@2
   inputs:
-    rootFolderOrFile: 'build'
-    includeRootFolder: false
-    archiveType: 'zip'
-    archiveFile: '$(Build.ArtifactStagingDirectory)/$(projectName)-$(Build.BuildId).zip'
-    replaceExistingArchive: true
-  displayName: 'Archive Build Files'
-  condition: succeeded()
+    Contents: |
+      build/**
+      .env
+      package.json
+      staticwebapp.config.json
+    TargetFolder: '$(Build.ArtifactStagingDirectory)'
+    CleanTargetFolder: true
+  displayName: 'Copy Files for Artifact'
 
 - task: PublishBuildArtifacts@1
   inputs:
     PathtoPublish: '$(Build.ArtifactStagingDirectory)'
-    ArtifactName: 'drop'
+    ArtifactName: 'edusync-frontend'
     publishLocation: 'Container'
-  displayName: 'Publish Build Artifacts'
-  condition: succeeded() 
+  displayName: 'Publish Build Artifacts' 
