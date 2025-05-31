@@ -1,7 +1,18 @@
 import axios from 'axios';
 
+// Get the current hostname
+const hostname = window.location.hostname;
+
+// Determine the base URL based on the hostname
+const getBaseUrl = () => {
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return 'https://backendprojectwebapp-c4azccb4dbbchsdc.centralindia-01.azurewebsites.net';
+  }
+  return 'https://backendprojectwebapp-c4azccb4dbbchsdc.centralindia-01.azurewebsites.net';
+};
+
 const api = axios.create({
-  baseURL: 'https://backendprojectwebapp-c4azccb4dbbchsdc.centralindia-01.azurewebsites.net',
+  baseURL: getBaseUrl(),
   headers: {
     'Content-Type': 'application/json',
   },
@@ -31,7 +42,7 @@ const getUserById = async (id) => {
 // Upload course
 const uploadCourse = async (courseData) => {
   try {
-    // Create a JSON object with PascalCase property names
+
     const jsonData = {
       CourseId: courseData.courseId,
       Title: courseData.title,
@@ -51,7 +62,7 @@ const uploadCourse = async (courseData) => {
 // Update existing course
 const updateCourse = async (courseData) => {
   try {
-    // Create a JSON object with PascalCase property names
+
     const jsonData = {
       CourseId: courseData.courseId,
       Title: courseData.title,
