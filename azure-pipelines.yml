@@ -53,7 +53,7 @@ steps:
     app_location: 'build'
     skip_app_build: true
     is_static_export: true
-    azure_static_web_apps_api_token: $(deployment_token)
+    azure_static_web_apps_api_token: $(deployment)
     deployment_environment: 'production'
   displayName: 'Deploy to Azure Static Web Apps'
   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
