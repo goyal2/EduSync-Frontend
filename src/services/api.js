@@ -1,43 +1,15 @@
 import axios from 'axios';
 
-// Create an axios instance with default config
 const api = axios.create({
   baseURL: 'https://backendprojectwebapp-c4azccb4dbbchsdc.centralindia-01.azurewebsites.net',
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: true // Important for CORS with credentials
 });
-
-// Add request interceptor to handle errors
-api.interceptors.request.use(
-  (config) => {
-    // You can add any request preprocessing here
-    return config;
-  },
-  (error) => {
-    console.error('Request error:', error);
-    return Promise.reject(error);
-  }
-);
-
-// Add response interceptor to handle errors
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    console.error('Response error:', error);
-    return Promise.reject(error);
-  }
-);
 
 // Register a new user
 const registerUser = async (userData) => {
-  try {
-    return await api.post('/api/UserModels', userData);
-  } catch (error) {
-    console.error('Registration error:', error);
-    throw error;
-  }
+  return api.post('/api/UserModels', userData);
 };
 
 // Login user
@@ -46,25 +18,20 @@ const loginUser = async (credentials) => {
     const response = await api.post('/api/UserModels/login', credentials);
     return response;
   } catch (error) {
-    console.error('Login error:', error);
+    console.error('Login request failed:', error);
     throw error;
   }
 };
 
 // Get user by ID
 const getUserById = async (id) => {
-  try {
-    return await api.get(`/api/UserModels/${id}`);
-  } catch (error) {
-    console.error('Get user error:', error);
-    throw error;
-  }
+  return api.get(`/api/UserModels/${id}`);
 };
 
 // Upload course
 const uploadCourse = async (courseData) => {
   try {
-
+    // Create a JSON object with PascalCase property names
     const jsonData = {
       CourseId: courseData.courseId,
       Title: courseData.title,
@@ -84,7 +51,7 @@ const uploadCourse = async (courseData) => {
 // Update existing course
 const updateCourse = async (courseData) => {
   try {
-
+    // Create a JSON object with PascalCase property names
     const jsonData = {
       CourseId: courseData.courseId,
       Title: courseData.title,
@@ -155,6 +122,7 @@ export const getCompletedAssessments = (studentId) =>
 // Get student's average score
 export const getStudentAverageScore = (studentId) =>
   api.get(`/api/ResultModels/average/${studentId}`);
+
 
 export {
   registerUser,
