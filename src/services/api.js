@@ -7,7 +7,6 @@ const api = axios.create({
   },
   
 });
-
 // Register a new user
 const registerUser = async (userData) => {
   return api.post('/api/UserModels', userData);
